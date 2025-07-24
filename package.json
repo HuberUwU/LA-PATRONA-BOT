@@ -1,0 +1,36 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.18.0",
+    "@distube/soundcloud": "^2.0.4",
+    "@distube/spotify": "^2.0.2",
+    "@distube/yt-dlp": "^2.0.1",
+    "@types/node": "^22.15.21",
+    "ascii-table": "^0.0.9",
+    "axios": "^1.9.0",
+    "colors": "^1.4.0",
+    "discord-html-transcripts": "^3.2.0",
+    "discord.js": "^14.19.3",
+    "distube": "^5.0.7",
+    "express": "^5.1.0",
+    "glob": "^11.0.2",
+    "libsodium-wrappers": "^0.7.15",
+    "mongoose": "^8.15.0",
+    "node-fetch": "^3.3.2",
+    "node-os-utils": "^1.3.7",
+    "opusscript": "^0.0.8",
+    "play-audio": "^0.5.2",
+    "play-dl": "^1.9.7",
+    "real-giveaways": "^2.0.0",
+    "util": "^0.12.5"
+  }
+}
