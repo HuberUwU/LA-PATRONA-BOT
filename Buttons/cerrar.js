@@ -13,12 +13,11 @@ module.exports = {
           .setColor(`#2b2d31`)
 
 
-      return interaction.reply({ embeds: [embed] })
+      await interaction.reply({ embeds: [embed] });
 
-
-        && setTimeout(() => {
-      interaction.channel.delete(`${interaction.channels}`)
-        }, 5000)
+      setTimeout(() => {
+        interaction.channel.delete().catch(() => {});
+      }, 5000);
 
     },
 };

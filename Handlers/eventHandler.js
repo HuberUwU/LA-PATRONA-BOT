@@ -3,7 +3,12 @@ async function loadEvents(client) {
   const ascii = require("ascii-table");
   const table = new ascii().setHeading("Events", "Status");
 
-  await client.events.clear();
+  if (client.events.size > 0) {
+    for (const [file, eventData] of client.events) {
+      eventData.emitter.removeListener(eventData.name, eventData.execute);
+    }
+    client.events.clear();
+  }
 
   const Files = await loadFiles("Events");
 
@@ -11,15 +16,12 @@ async function loadEvents(client) {
     const event = require(file);
 
     const execute = (...args) => event.execute(...args, client);
-    client.events.set(event.name, execute);
+    const emitter = event.rest ? client.rest : client;
 
-    if (event.rest) {
-      if (event.once) client.rest.on(event.name, execute);
-      else client.rest.on(event.name, execute);
-    } else {
-      if (event.once) client.once(event.name, execute);
-      else client.on(event.name, execute);
-    }
+    if (event.once) emitter.once(event.name, execute);
+    else emitter.on(event.name, execute);
+
+    client.events.set(file, { name: event.name, execute, emitter });
 
     table.addRow(event.name, "🟩");
   });

@@ -9,98 +9,122 @@ module.exports = {
   developer: true,
   data: new SlashCommandBuilder()
     .setName("update")
-    .setDescription("Actualice las presencias del bot.")
+    .setDescription("Actualiza la presencia y estado del bot (Solo Desarrollador).")
     .addSubcommand((subcommand) =>
       subcommand
         .setName("activity")
-        .setDescription("Actualice la actividad del bot (OWNER)")
+        .setDescription("Actualiza la actividad de visualización del bot.")
         .addStringOption((option) =>
           option
             .setName("type")
-            .setDescription("Elige una actividad.")
+            .setDescription("El tipo de actividad")
             .setRequired(true)
             .addChoices(
-              { name: "Jugando", value: "Jugando" },
-              { name: "Stremeando", value: "Stremeando" },
-              { name: "Escuchando", value: "Escuchando" },
-              { name: "Viendo", value: "Viendo" },
-              { name: "Compitiendo", value: "Compitiendo" }
+              { name: "Jugando", value: "Playing" },
+              { name: "Stremeando", value: "Streaming" },
+              { name: "Escuchando", value: "Listening" },
+              { name: "Viendo", value: "Watching" },
+              { name: "Compitiendo", value: "Competing" }
             )
         )
         .addStringOption((option) =>
           option
             .setName("activity")
-            .setDescription("Establece tu actividad actual.")
+            .setDescription("El texto de la actividad")
             .setRequired(true)
         )
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("status")
-        .setDescription("Actualizar el estado del bot (OWNER)")
+        .setDescription("Actualiza el estado de conexión del bot.")
         .addStringOption((option) =>
           option
             .setName("type")
-            .setDescription("Elige un estado.")
+            .setDescription("Elige el estado de conexión")
             .setRequired(true)
             .addChoices(
-              { name: "En linea", value: "online" },
+              { name: "En línea", value: "online" },
               { name: "Inactivo", value: "idle" },
               { name: "No molestar", value: "dnd" },
               { name: "Invisible", value: "invisible" }
             )
         )
     ),
+
   async execute(interaction, client) {
     const { options } = interaction;
 
-    const sub = options.getSubcommand(["activity", "status"]);
+    const sub = options.getSubcommand();
     const type = options.getString("type");
-    const activity = options.getString("activity");
+    const activityText = options.getString("activity");
+
+    const embed = new EmbedBuilder()
+      .setColor("#2b2d31")
+      .setTitle("⚙️ Presencia Actualizada")
+      .setTimestamp();
 
     try {
-      switch (sub) {
-        case "activity":
-          switch (type) {
-            case "Jugando":
-              client.user.setActivity(activity, { type: ActivityType.Playing });
-              break;
-            case "Stremeando":
-              client.user.setActivity(activity, {
-                type: ActivityType.Streaming,
-                url: "https://www.twitch.tv/huberuwu", // De lo contrario no funcionara
-              });
-              break;
-            case "Escuchando":
-              client.user.setActivity(activity, {
-                type: ActivityType.Listening,
-              });
-              break;
-            case "Viendo":
-              client.user.setActivity(activity, {
-                type: ActivityType.Watching,
-              });
-              break;
-            case "Compitiendo":
-              client.user.setActivity(activity, {
-                type: ActivityType.Competing,
-              });
-              break;
-          }
-        case "status":
-          client.user.setPresence({ status: type });
-          break;
+      if (sub === "activity") {
+        let typeLabel = "";
+        let activityType;
+
+        switch (type) {
+          case "Playing":
+            activityType = ActivityType.Playing;
+            typeLabel = "Jugando a";
+            break;
+          case "Streaming":
+            activityType = ActivityType.Streaming;
+            typeLabel = "Transmitiendo";
+            break;
+          case "Listening":
+            activityType = ActivityType.Listening;
+            typeLabel = "Escuchando";
+            break;
+          case "Watching":
+            activityType = ActivityType.Watching;
+            typeLabel = "Viendo";
+            break;
+          case "Competing":
+            activityType = ActivityType.Competing;
+            typeLabel = "Compitiendo en";
+            break;
+        }
+
+        if (type === "Streaming") {
+          client.user.setActivity(activityText, {
+            type: activityType,
+            url: "https://www.twitch.tv/huberuwu",
+          });
+        } else {
+          client.user.setActivity(activityText, {
+            type: activityType,
+          });
+        }
+
+        embed.setDescription(`La actividad del bot se ha actualizado exitosamente.\n\n**• Tipo:** \`${typeLabel}\`\n**• Texto:** \`${activityText}\``);
+      } else if (sub === "status") {
+        client.user.setPresence({ status: type });
+
+        const statusLabels = {
+          online: "En línea 🟢",
+          idle: "Inactivo 🟡",
+          dnd: "No molestar 🔴",
+          invisible: "Invisible ⚫",
+        };
+
+        embed.setDescription(`El estado de conexión del bot se ha actualizado exitosamente.\n\n**• Nuevo Estado:** \`${statusLabels[type] || type}\``);
       }
+
+      return interaction.reply({ embeds: [embed], flags: ["Ephemeral"] });
     } catch (err) {
-      console.log(err);
+      console.error(err);
+      const errorEmbed = new EmbedBuilder()
+        .setColor("Red")
+        .setTitle("❌ Error al actualizar presencia")
+        .setDescription(`Ocurrió un error inesperado al intentar actualizar la presencia:\n\`\`\`js\n${err.message}\n\`\`\``);
+      return interaction.reply({ embeds: [errorEmbed], flags: ["Ephemeral"] });
     }
-
-    const embed = new EmbedBuilder();
-
-    return interaction.reply({
-      embeds: [
-        embed.setDescription(`_Actualizó con éxito su ${sub} a **${type}**._`),
-      ],
-    });
   },
 };

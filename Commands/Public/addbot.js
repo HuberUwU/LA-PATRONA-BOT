@@ -3,35 +3,79 @@ const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, EmbedBuilder, Butt
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("addbot")
-        .setDescription("Enlace al bot"),
-    async execute(interaction) {
+        .setDescription("Obtén el enlace de invitación oficial del bot y soporte."),
+    async execute(interaction, client) {
+        // Embed estético premium de presentación
         const embed = new EmbedBuilder()
-            .setDescription(`¡Hola! Aquí tienes mi enlace de invitación.`)
-            .setColor("Random"); //Puedes definir un color como tal
+            .setTitle(`🤖 ¡Invítame a tu servidor!`)
+            .setDescription(
+                `Gracias por querer añadir a **${client.user.username}** a tu comunidad.\n\n` +
+                `✨ **¿Qué ofrezco?**\n` +
+                `• 🎵 Sistema de música premium (DisTube).\n` +
+                `• 🎫 Sistema de soporte por tickets dinámico.\n` +
+                `• ⚙️ Configuración de autoroles y sistema AFK.\n` +
+                `• 🛠️ Comandos de moderación avanzados.`
+            )
+            .setThumbnail(client.user.displayAvatarURL({ dynamic: true }))
+            .setColor("#2b2d31")
+            .setFooter({ text: `${client.user.username} || Enlace oficial`, iconURL: client.user.displayAvatarURL() })
+            .setTimestamp();
 
+        // Botones organizados, con emojis y variables dinámicas
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setLabel("Agregar")
+                .setLabel("Invitar Bot")
                 .setStyle(ButtonStyle.Link)
-                .setURL("https://discord.com/oauth2/authorize?client_id=1191953720699793512&scope=bot&permissions=2147483656"), //enlace al bot
+                .setEmoji("🤖")
+                .setURL(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=2147483656`),
+            new ButtonBuilder()
+                .setLabel("Servidor de Soporte")
+                .setStyle(ButtonStyle.Link)
+                .setEmoji("🎡")
+                .setURL("https://discord.gg/huberuwu"),
             new ButtonBuilder()
                 .setLabel("Eliminar mensaje")
                 .setStyle(ButtonStyle.Danger)
+                .setEmoji("🗑️")
                 .setCustomId('deleteButton')
         );
-        interaction.reply({ embeds: [embed], components: [row], ephemeral: false }); // si pones el ephemeral en true usa el codigo de abajo
 
-        // Agregar un listener para manejar la interacción del botón
-        const filter = interaction => interaction.customId === 'deleteButton' && interaction.user.id === interaction.member.user.id;
-        const collector = interaction.channel.createMessageComponentCollector({ filter, time: 60000 }); // 60 segundos = 1  min // 120000 = 2  min
+        await interaction.reply({ embeds: [embed], components: [row] });
+        const response = await interaction.fetchReply();
 
-        collector.on('collect', async interaction => {
-            // Eliminar el mensaje cuando se hace clic en el botón de eliminar
-            interaction.message.delete();
+        // Filtro para que solo el creador del comando pueda eliminar el mensaje
+        const filter = clickInteraction => clickInteraction.customId === 'deleteButton' && clickInteraction.user.id === interaction.user.id;
+        const collector = response.createMessageComponentCollector({ filter, time: 60000 });
+
+        collector.on('collect', async clickInteraction => {
+            // Agradecemos la interacción antes de borrar el mensaje para evitar fallos de interacción en color rojo
+            await clickInteraction.deferUpdate().catch(() => { });
+            await clickInteraction.message.delete().catch(() => { });
         });
 
-        collector.on('end', collected => {
-            // Puedes realizar acciones adicionales cuando el colector termina (opcional)
+        collector.on('end', async (collected, reason) => {
+            // Si el mensaje no fue borrado, desactivamos el botón de eliminar tras 60 segundos
+            if (reason !== 'messageDelete') {
+                const disabledRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel("Invitar Bot")
+                        .setStyle(ButtonStyle.Link)
+                        .setEmoji("🤖")
+                        .setURL(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=2147483656`),
+                    new ButtonBuilder()
+                        .setLabel("Servidor de Soporte")
+                        .setStyle(ButtonStyle.Link)
+                        .setEmoji("🎡")
+                        .setURL("https://discord.gg/huberuwu"),
+                    new ButtonBuilder()
+                        .setLabel("Eliminar (Expirado)")
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji("🗑️")
+                        .setCustomId('deleteButton')
+                        .setDisabled(true)
+                );
+                await interaction.editReply({ components: [disabledRow] }).catch(() => { });
+            }
         });
     },
 };

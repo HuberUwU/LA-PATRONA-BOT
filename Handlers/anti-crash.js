@@ -23,7 +23,7 @@ module.exports = (client) => {
   });
 
   process.on("warning", (warn) => {
+    if (warn.name === "DeprecationWarning") return;
     console.log(warn);
-
   });
 };

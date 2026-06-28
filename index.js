@@ -1,16 +1,16 @@
-const { Client, GatewayIntentBits, Partials, Collection, Events, AuditLogEvent, EmbedBuilder, Discord, Colors } = require("discord.js");
-const { Guilds, GuildMembers, GuildMessages, GuildVoiceStats } = GatewayIntentBits;
+const { Client, GatewayIntentBits, Partials, Collection, Events } = require("discord.js");
+const { Guilds, GuildMembers, GuildMessages, GuildVoiceStates, MessageContent } = GatewayIntentBits;
 const { User, Message, GuildMember, ThreadMember } = Partials;
 const { ActivityType } = require("discord.js");
 const { DisTube } = require('distube');
 const { SpotifyPlugin } = require('@distube/spotify');
 const { SoundCloudPlugin } = require('@distube/soundcloud');
-const { YtDlpPlugin } = require('@distube/yt-dlp');
 
+const mongoose = require("mongoose");
 const afkSchema = require('./Schemas/afkSchema');
 
 const client = new Client({ 
-  intents: 3276799,
+  intents: [Guilds, GuildMembers, GuildMessages, GuildVoiceStates, MessageContent],
   partials: [User, Message, GuildMember, ThreadMember]
 });
 
@@ -21,6 +21,24 @@ client.config = require("./config.json");
 client.events = new Collection();
 client.commands = new Collection();
 client.buttons = new Collection();
+client.cooldowns = new Collection();
+
+const ffmpeg = require('ffmpeg-static');
+
+// Inicializar DisTube con soporte Premium y Binario de FFmpeg Estático
+client.distube = new DisTube(client, {
+  emitNewSongOnly: true,
+  ffmpeg: {
+    path: ffmpeg
+  },
+  plugins: [
+    new SpotifyPlugin(),
+    new SoundCloudPlugin()
+  ]
+});
+
+// Vincular los eventos de música
+require("./Handlers/distubeEvents")(client);
 
 loadEvents(client);
 loadButtons(client);
@@ -39,31 +57,36 @@ client.login(client.config.token).then(() => {
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
 
-  const check = await afkSchema.findOne({ Guild: message.guild.id, User: message.author.id});
-  if (check) {
-    const nick = check.Nickname;
-    await afkSchema.deleteMany({ Guild: message.guild.id, User: message.author.id});
+  try {
+    // Si Mongoose no está conectado (1 = connected), ignorar las consultas de AFK
+    if (mongoose.connection.readyState !== 1) return;
 
-    await message.member.setNickname(`${nick}`).catch(err => {
-      return;
-    })
+    const check = await afkSchema.findOne({ Guild: message.guild.id, User: message.author.id});
+    if (check) {
+      const nick = check.Nickname || null;
+      await afkSchema.deleteMany({ Guild: message.guild.id, User: message.author.id});
 
-    const m1 = await message.reply({ content: `Bienvenido de nuevo, **${message.author}**! He **removido** tu estado **AFK**`, ephemeral: true });
-   setTimeout(() => {
-      m1.delete();
-   }, 4000);
-  } else {
+      await message.member.setNickname(nick).catch(() => {});
 
-    const members = message.mentions.users.first();
-    if (!members) return;
-    const Data = await afkSchema.findOne({ Guild: message.guild.id, User: members.id});
-    if (!Data) return;
+      const m1 = await message.reply({ content: `Bienvenido de nuevo, **${message.author}**! He **removido** tu estado **AFK**` });
+      setTimeout(() => {
+        m1.delete().catch(() => {});
+      }, 4000);
+    } else {
+      const members = message.mentions.users.first();
+      if (!members) return;
+      
+      const Data = await afkSchema.findOne({ Guild: message.guild.id, User: members.id});
+      if (!Data) return;
 
-    const member = message.guild.members.cache.get(members.id);
-    const msg = Data.Message || 'Ninguna razón dada';
+      const member = message.guild.members.cache.get(members.id);
+      const msg = Data.Message || 'Ninguna razón dada';
 
-    if (message.content.includes(members)) {
-      const m = await message.reply({ content: `**${member.user.tag}** esta **AFK** | **Motivo:** ${msg}`});
+      if (message.content.includes(members)) {
+        await message.reply({ content: `**${member?.user?.tag || members.tag}** está **AFK** | **Motivo:** ${msg}`}).catch(() => {});
+      }
     }
+  } catch (err) {
+    console.error("Error en base de datos en MessageCreate:", err);
   }
 })

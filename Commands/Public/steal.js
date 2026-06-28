@@ -1,166 +1,88 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
-
-const { default: axios } = require("axios");
-
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
-
-
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
-
   data: new SlashCommandBuilder()
-
     .setName("steal")
-
-    .setDescription("Agrega el emoji de otro servidor al tuyo.")
-
+    .setDescription("Agrega un emoji personalizado de otro servidor (o una URL de imagen) a este servidor.")
     .addStringOption((option) =>
-
       option
-
         .setName("emoji")
-
-        .setDescription("Emoji que quieres añadir al servidor")
-
+        .setDescription("El emoji a copiar (menciónalo) o la URL de la imagen")
         .setRequired(true)
-
     )
-
     .addStringOption((option) =>
-
       option
-
         .setName("name")
-
-        .setDescription("Nombre de el emoji")
-
+        .setDescription("El nombre que le darás al emoji")
         .setRequired(true)
-
-    ),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageEmojisAndStickers)
+    .setDMPermission(false),
 
   async execute(interaction) {
 
-    if (
-
-      !interaction.member.permissions.has(
-
-        PermissionsBitField.Flags.Administrator
-
-      )
-
-    )
-
+    // 2. Validar permisos del propio Bot
+    if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageEmojisAndStickers)) {
       return await interaction.reply({
-
-        content:
-
-          "You must be a Administrator and your role must have the **Administrator** permission to perform this action.",
-
-        ephemeral: true,
-
+        content: "⚠️ El bot no tiene el permiso **Gestionar Emojis y Stickers** en este servidor.",
+        flags: ['Ephemeral'],
       });
-
-
-
-    let emoji = interaction.options.getString("emoji")?.trim();
-
-    const name = interaction.options.getString("name");
-
-
-
-    if (emoji.startsWith("<") && emoji.endsWith(">")) {
-
-      const id = emoji.match(/\d{15,}/g)[0];
-
-
-
-      const type = await axios
-
-        .get(`https://cdn.discordapp.com/emojis/${id}.gif`)
-
-        .then((image) => {
-
-          if (image) return "gif";
-
-          else return "png";
-
-        })
-
-        .catch((err) => {
-
-          return "png";
-
-        });
-
-
-
-      emoji = `https://cdn.discordapp.com/emojis/${id}.${type}?quality=lossless`;
-
     }
 
+    let emojiInput = interaction.options.getString("emoji").trim();
+    const name = interaction.options.getString("name").trim();
 
+    let finalUrl = emojiInput;
 
-    if (!emoji.startsWith("http")) {
-
-      return await interaction.reply({
-
-        content: "No puedes añadie emojis por defecto de discord!",
-
-        ephemeral: true,
-
-      });
-
+    // 3. Procesar si el input es una mención de emoji personalizado de Discord (instantáneo sin Axios)
+    const match = emojiInput.match(/^<?(a)?:?(\w+):(\d{17,20})>?$/);
+    if (match) {
+      const isAnimated = !!match[1];
+      const emojiId = match[3];
+      const ext = isAnimated ? "gif" : "png";
+      finalUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${ext}?quality=lossless`;
     }
 
-
-
-    if (!emoji.startsWith("https")) {
-
+    // 4. Validaciones de URL
+    if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
       return await interaction.reply({
-
-        content: "No puedes añadir emojis por defecto de discord!",
-
-        ephemeral: true,
-
+        content: "⚠️ Por favor, introduce un emoji de Discord válido o un enlace de imagen (HTTP/HTTPS) directo.",
+        flags: ['Ephemeral'],
       });
-
     }
 
+    await interaction.deferReply();
 
-
-    interaction.guild.emojis
-
-      .create({ attachment: `${emoji}`, name: `${name}` })
-
-      .then((emoji) => {
-
-        const embed = new EmbedBuilder()
-
-          .setColor("Blue")
-
-          .setDescription(`Emoji agregado: ${emoji}, con el nombre: ${name}`);
-
-
-
-        return interaction.reply({ embeds: [embed] });
-
-      })
-
-      .catch((err) => {
-
-        interaction.reply({
-
-          content:
-
-            "No puedes agregar este emoji debido a que alcanzaste el limite de emojis en este servidor",
-
-          ephemeral: true,
-
-        });
-
+    try {
+      const createdEmoji = await interaction.guild.emojis.create({
+        attachment: finalUrl,
+        name: name
       });
 
+      const embed = new EmbedBuilder()
+        .setTitle("✅ ¡Emoji Agregado Exitosamente!")
+        .setDescription(`El emoji ha sido añadido a la lista del servidor.\n\n**• Nombre:** \`:${createdEmoji.name}:\`\n**• ID:** \`${createdEmoji.id}\`\n**• Visualización:** ${createdEmoji}`)
+        .setThumbnail(createdEmoji.url)
+        .setColor("Green")
+        .setTimestamp();
+
+      return await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error(error);
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error al crear el emoji")
+        .setDescription(
+          `No se pudo crear el emoji personalizado.\n\n` +
+          `**Posibles causas:**\n` +
+          `• El servidor alcanzó el límite máximo de emojis.\n` +
+          `• El archivo/enlace no es una imagen válida o es demasiado pesado (máximo 256 KB).\n` +
+          `• El bot carece de los permisos correspondientes.\n\n` +
+          `*Detalle del error:* \`${error.message}\``
+        )
+        .setColor("Red")
+        .setTimestamp();
+
+      return await interaction.editReply({ embeds: [errorEmbed] });
+    }
   },
-
 };
-

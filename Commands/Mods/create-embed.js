@@ -1,142 +1,108 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
-
-
-
-
-
-
 module.exports = {
-
-    data: new SlashCommandBuilder()
-
-        .setName('create-embed')
-
-        .setDescription('Creare un embed en el canal que utilices este comando.')
-
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-
-        .addStringOption(option =>
-
-            option.setName('title')
-
-                .setDescription('*Titulo de el embed.')
-
-                .setRequired(true)
-
-        )
-
-        .addStringOption(option =>
-
-            option.setName('description')
-
-                .setDescription('*Descripción de el embed.')
-
-                .setRequired(true)
-
-        )
-
-        .addStringOption(option =>
-
-            option.setName('color')
-
-                .setDescription('*Elige un color.')
-
-                .setRequired(true)
-
-                .setMaxLength(6)
-
- 
-.setChoices(
-
+  data: new SlashCommandBuilder()
+    .setName('create-embed')
+    .setDescription('Crea y envía un mensaje Embed personalizado en este canal.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption(option =>
+      option.setName('title')
+        .setDescription('El título del embed.')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('description')
+        .setDescription('La descripción / contenido principal del embed.')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('color')
+        .setDescription('Elige un color para el borde lateral.')
+        .setRequired(true)
+        .setChoices(
           { name: "Morado", value: "8A2BE2" },
-
           { name: "Verde", value: "52A666" },
-
           { name: "Rojo", value: "FF0000" },
-
-          { name: "Yellow", value: "FFF68F" },
-
+          { name: "Amarillo", value: "FFF68F" },
           { name: "Azul", value: "6495ED" },
-          { name: "Orange", value: "FF8D00" },
-         { name: "Negro", value: "000001" }
-
-        )                     
+          { name: "Naranja", value: "FF8D00" },
+          { name: "Negro", value: "000001" }
         )
+    )
+    .addStringOption(option =>
+      option.setName('image')
+        .setDescription('URL de la imagen grande de la parte inferior (Opcional).')
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName('thumbnail')
+        .setDescription('URL de la miniatura pequeña de la parte superior derecha (Opcional).')
+        .setRequired(false)
+    ),
 
-        .addStringOption(option =>
+  async execute(interaction) {
+    const { options } = interaction;
 
-            option.setName('image')
+    // 1. Validar permisos del bot en el canal actual
+    const botMember = interaction.guild.members.me;
+    if (!botMember.permissionsIn(interaction.channel).has(PermissionFlagsBits.SendMessages) ||
+        !botMember.permissionsIn(interaction.channel).has(PermissionFlagsBits.EmbedLinks)) {
+      return interaction.reply({
+        content: "⚠️ El bot no tiene los permisos necesarios (**Enviar Mensajes** y **Insertar Enlaces**) en este canal.",
+        flags: ['Ephemeral']
+      });
+    }
 
-                .setDescription('Pega una url de una imagen. (Se mostrara en la parte de abajo del embed)')
+    const title = options.getString('title');
+    const description = options.getString('description').replace(/\\n/g, '\n'); // Permitir saltos de línea ingresando \n
+    const color = options.getString('color');
+    const image = options.getString('image')?.trim();
+    const thumbnail = options.getString('thumbnail')?.trim();
 
-                .setRequired(false)
+    // 2. Validar formato de URLs opcionales
+    const urlRegex = /^https?:\/\/.+\..+/i;
+    if (image && !urlRegex.test(image)) {
+      return interaction.reply({
+        content: "⚠️ La URL de la **imagen** es inválida. Asegúrate de que empiece con `http://` o `https://`.",
+        flags: ['Ephemeral']
+      });
+    }
 
-        )
+    if (thumbnail && !urlRegex.test(thumbnail)) {
+      return interaction.reply({
+        content: "⚠️ La URL de la **miniatura (thumbnail)** es inválida. Asegúrate de que empiece con `http://` o `https://`.",
+        flags: ['Ephemeral']
+      });
+    }
 
-        .addStringOption(option =>
+    // 3. Construir el embed de forma segura
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(description)
+      .setColor(`#${color}`)
+      .setTimestamp()
+      .setFooter({
+        text: `Publicado por ${interaction.user.username}`,
+        iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+      });
 
-            option.setName('thumbnail')
+    if (image) embed.setImage(image);
+    if (thumbnail) embed.setThumbnail(thumbnail);
 
-                .setDescription('Pega una url de una imagen. (Se mostrara en pequeño en la parte superior derecha del embed)')
+    try {
+      await interaction.channel.send({ embeds: [embed] });
+      
+      const successEmbed = new EmbedBuilder()
+        .setColor("Green")
+        .setDescription("✅ **El embed ha sido creado y enviado en este canal correctamente.**");
 
-                .setRequired(false)
-
-        ),
-
-        
-
-     async execute(interaction) {
-
-        const { options } = interaction;
-
-
-
-        const title = options.getString('title');
-
-        const description = options.getString('description');
-
-        const color = options.getString('color');
-
-        const image = options.getString('image');
-
-        const thumbnail = options.getString('thumbnail');
-
-        const fieldn = options.getString('field-name') || "** **";
-
-        const fieldv = options.getString('field-value') || " ";
-
-        const file = options.getAttachment('file')
-
-
-
-        const embed = new EmbedBuilder()
-
-            .setTitle(title)
-
-            .setDescription(description)
-
-            .setColor(`#${color}`)
-
-            .setImage(image)
-
-            .setThumbnail(thumbnail)
-
-            .setTimestamp()
-
-
-
-.setFooter({ text: interaction.member.user.tag, iconURL: interaction.member.displayAvatarURL({ dynamic: true }) })
-
-     
-
-              interaction.channel.send({ embeds: [embed]});
-
-        await interaction.reply({content: `Embed enviado en este canal correctamente 
-`,
- ephemeral: true,       });
-
-
-    },
-
+      return interaction.reply({ embeds: [successEmbed], flags: ['Ephemeral'] });
+    } catch (error) {
+      console.error(error);
+      return interaction.reply({
+        content: `❌ Hubo un error al intentar enviar el embed: \`${error.message}\``,
+        flags: ['Ephemeral']
+      });
+    }
+  },
 };

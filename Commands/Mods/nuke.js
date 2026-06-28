@@ -1,5 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,7 +15,7 @@ module.exports = {
     const channel =
       interaction.options.getChannel("canal") || interaction.channel;
 
-    const message = await interaction.reply({
+    await interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setTitle("🤯 Canal Nukeado")
@@ -37,8 +36,8 @@ module.exports = {
             .setEmoji("❌")
         ),
       ],
-      fetchReply: true,
     });
+    const message = await interaction.fetchReply();
 
     const collector = message.createMessageComponentCollector({
       filter: (i) => i.user.id === interaction.user.id,
@@ -47,7 +46,7 @@ module.exports = {
     });
 
     collector.on("collect", async (i) => {
-      collector.stop();
+      collector.stop("answered");
       await i.deferUpdate();
       if (i.customId === "si") {
         channel.clone().then((newChannel) => {
@@ -70,8 +69,7 @@ module.exports = {
                   .setTitle("🗑️ Canal Nukeado")
                   .setDescription(`${channel.name} ha sido nukeado correctamente`)
                   .setColor("Blue")
-  
-.attachFiles("https://j.gifs.com/vQbBj7.gif"),
+                  .setImage("https://j.gifs.com/vQbBj7.gif"),
               ],
               components: [],
             });
@@ -83,10 +81,33 @@ module.exports = {
             new EmbedBuilder()
               .setTitle("🗑️ Canal Nukeado")
               .setDescription(`${channel} Se Detuvo el nuke del canal`)
-              .setColor("Blueed"),
+              .setColor("Blue"),
           ],
           components: [],
         });
+      }
+    });
+
+    collector.on("end", async (collected, reason) => {
+      if (reason === "time") {
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel("Si")
+            .setStyle(ButtonStyle.Success)
+            .setCustomId("si")
+            .setEmoji("✔")
+            .setDisabled(true),
+          new ButtonBuilder()
+            .setLabel("No")
+            .setStyle(ButtonStyle.Primary)
+            .setCustomId("no")
+            .setEmoji("❌")
+            .setDisabled(true)
+        );
+
+        await interaction.editReply({
+          components: [disabledRow]
+        }).catch(() => {});
       }
     });
   },

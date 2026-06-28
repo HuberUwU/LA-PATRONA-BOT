@@ -3,180 +3,164 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   PermissionFlagsBits,
-  time,
   ActionRowBuilder,
   ButtonStyle,
   ButtonBuilder,
 } = require("discord.js");
-
-
+const ticketSchema = require("../../Schemas/ticketSchema");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("setup-ticket")
-    .setDescription("Crea un embed personalizado")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .setDescription("Configura el sistema de tickets en el servidor.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption((option) =>
       option
-        .setName(`canal`)
-        .setDescription(`Canal al que sera enviado el embed`)
+        .setName("canal")
+        .setDescription("Canal al que será enviado el embed de creación de tickets")
         .setRequired(true)
-        .addChannelTypes(0)
-    )
-    .addStringOption((option) =>
-      option.setName(`titulo`).setDescription(`Titulo del embed`).setRequired(true)
-    )
-
-    .addStringOption((option) =>
-      option.setName(`descripcion`).setDescription(`Descripcion del embed`).setRequired(true)
-    )
-    .addAttachmentOption((option) =>
-      option.setName(`thumbnail`).setDescription(`Miniatura del embed`)
-    )
-    .addAttachmentOption((option) =>
-      option.setName(`imagen`).setDescription(`Imagen del embed`)
-    )
-    .addStringOption((option) =>
-      option.setName(`footer`).setDescription(`Footer del embed`)
+        .addChannelTypes(0) // Canal de texto
     )
     .addStringOption((option) =>
       option
-        .setName(`color`)
-        .setDescription(`Color del embed`)
+        .setName("titulo")
+        .setDescription("Título del embed del panel de tickets")
+        .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("descripcion")
+        .setDescription("Descripción del embed (puedes usar \\n para saltos de línea)")
+        .setRequired(true)
+    )
+    .addRoleOption((option) =>
+      option
+        .setName("soporte-rol")
+        .setDescription("El rol de soporte/administrador que atenderá los tickets")
+        .setRequired(true)
+    )
+    .addAttachmentOption((option) =>
+      option.setName("thumbnail").setDescription("Miniatura del embed (imagen)")
+    )
+    .addAttachmentOption((option) =>
+      option.setName("imagen").setDescription("Imagen grande del embed")
+    )
+    .addStringOption((option) =>
+      option.setName("footer").setDescription("Texto del pie de página del embed")
+    )
+    .addStringOption((option) =>
+      option
+        .setName("color")
+        .setDescription("Color del embed")
         .setChoices(
-          { name: "Greyple", value: "greyple" },
-          { name: "Green", value: "green" },
-          { name: "Red", value: "red" },
-          { name: "Yellow", value: "yellow" },
-          { name: "Aqua", value: "aqua" }
+          { name: "Gris Discord", value: "greyple" },
+          { name: "Verde", value: "green" },
+          { name: "Rojo", value: "red" },
+          { name: "Amarillo", value: "yellow" },
+          { name: "Celeste", value: "aqua" }
         )
     )
-
     .addStringOption((option) =>
       option
-        .setName(`timestamp`)
-        .setDescription(`Elige si ponerle un timestamp al embed`)
-        .setChoices({ name: "Si", value: "si" }, { name: "No", value: "no" })
+        .setName("timestamp")
+        .setDescription("Elige si añadir marca de tiempo (timestamp)")
+        .setChoices({ name: "Sí", value: "si" }, { name: "No", value: "no" })
     )
     .addStringOption((option) =>
-      option.setName(`autor`).setDescription(`Pon un autor al embed`)
+      option.setName("autor").setDescription("Nombre del autor del embed")
     ),
 
   /**
-   *
    * @param {ChatInputCommandInteraction} interaction
    */
-
   async execute(interaction) {
-    let embed = new EmbedBuilder();
-    let embed2 = new EmbedBuilder();
+    const { options } = interaction;
 
+    const channel = options.getChannel("canal");
+    const titulo = options.getString("titulo");
+    const descripcion = options.getString("descripcion").replace(/\\n/g, "\n");
+    const soporteRol = options.getRole("soporte-rol");
+    const thumbnail = options.getAttachment("thumbnail");
+    const imagen = options.getAttachment("imagen");
+    const timestamp = options.getString("timestamp");
+    const footer = options.getString("footer");
+    const color = options.getString("color");
+    const autor = options.getString("autor");
 
-    let channel = interaction.options.getChannel(`canal`);
-    let titulo = interaction.options.getString(`titulo`);
-    let descripcion = interaction.options.getString(`descripcion`);
-    let thumbnail = interaction.options.getAttachment(`thumbnail`);
-    let imagen = interaction.options.getAttachment(`imagen`);
-    let timestamp = interaction.options.getString(`timestamp`);
-    let footer = interaction.options.getString(`footer`);
-    let color = interaction.options.getString(`color`);
-    let autor = interaction.options.getString(`autor`);
-
-
-    if (titulo) {
-      embed.setTitle(titulo);
-    } else {
+    // 1. Validar permisos del bot en el canal de tickets
+    const botMember = interaction.guild.members.me;
+    if (!botMember.permissionsIn(channel).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+      return interaction.reply({
+        content: `⚠️ El bot no tiene los permisos suficientes en ${channel}. Asegúrate de que pueda **Ver el canal**, **Enviar mensajes** e **Insertar enlaces**.`,
+        flags: ['Ephemeral']
+      });
     }
 
-
-    if (descripcion) {
-      if (descripcion.length > 2048)
-        return interaction.reply({
-          embeds: [
-            embed2.setDescription(
-              `❌ La descripcion no puede ser de mas de 2048 caracteres`
-            ),
-          ],
-          ephemeral: true,
-        });
-      embed.setDescription(descripcion);
-    } else {
+    // 2. Validar que los adjuntos sean de tipo imagen
+    if (thumbnail && !thumbnail.contentType.startsWith("image/")) {
+      return interaction.reply({
+        content: "⚠️ El archivo adjunto para la **miniatura (thumbnail)** debe ser una imagen válida.",
+        flags: ['Ephemeral']
+      });
     }
 
-
-    if (thumbnail) {
-      embed.setThumbnail(thumbnail.url);
-    } else {
+    if (imagen && !imagen.contentType.startsWith("image/")) {
+      return interaction.reply({
+        content: "⚠️ El archivo adjunto para la **imagen** debe ser una imagen válida.",
+        flags: ['Ephemeral']
+      });
     }
 
+    // 3. Crear el embed de soporte
+    const embed = new EmbedBuilder()
+      .setTitle(titulo)
+      .setDescription(description);
 
-    if (imagen) {
-      embed.setImage(imagen.url);
+    if (thumbnail) embed.setThumbnail(thumbnail.url);
+    if (imagen) embed.setImage(imagen.url);
+    if (autor) embed.setAuthor({ name: autor });
+    if (footer) embed.setFooter({ text: footer });
+    if (timestamp === "si") embed.setTimestamp();
+
+    // Mapear colores de forma limpia
+    const colors = {
+      greyple: "Greyple",
+      green: "Green",
+      red: "Red",
+      yellow: "Yellow",
+      aqua: "Aqua"
+    };
+    if (color && colors[color]) {
+      embed.setColor(colors[color]);
     } else {
+      embed.setColor("#2b2d31"); // Color por defecto estético y oscuro
     }
 
-
-    if (timestamp) {
-      if (timestamp === "si") {
-        embed.setTimestamp();
-      } else if (timestamp === "no") {
-      }
-    } else {
-    }
-
-
-
-    if (autor) {
-      embed.setAuthor({ name: autor });
-    } else {
-    }
-
-
-    if (footer) {
-      embed.setFooter({ text: footer });
-    } else {
-    }
-
-
-    if (color) {
-      if (color === "greyple") {
-        embed.setColor("Greyple");
-      } else {
-      }
-      if (color === "green") {
-        embed.setColor("Green");
-      } else {
-      }
-      if (color === "red") {
-        embed.setColor("Red");
-      } else {
-      }
-      if (color === "yellow") {
-        embed.setColor("Yellow");
-      } else {
-      }
-      if (color === "aqua") {
-        embed.setColor("Aqua");
-      } else {
-      }
-    } else {
-    }
-
-
+    // 4. Configurar el botón de creación de tickets
     const button = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-    .setCustomId("ticket")
-    .setLabel("📨CREAR UN TICKET")
-    .setStyle(ButtonStyle.Primary)
+      new ButtonBuilder()
+        .setCustomId("ticket")
+        .setLabel("📨 Crear Ticket")
+        .setStyle(ButtonStyle.Primary)
+    );
 
+    // 5. Guardar la configuración en la base de datos de forma persistente
+    await ticketSchema.findOneAndUpdate(
+      { Guild: interaction.guild.id },
+      { StaffRole: soporteRol.id },
+      { upsert: true, new: true }
+    );
 
-    )
-
-    await interaction.reply({
-
-      embeds: [embed2.setDescription(`✅ **El sistema de tickets se configuro correctamente**`)],
-    })
-
+    // 6. Enviar panel al canal y responder con confirmación
     await channel.send({ embeds: [embed], components: [button] });
+
+    const successEmbed = new EmbedBuilder()
+      .setColor("Green")
+      .setDescription(`✅ **El sistema de tickets se configuró correctamente en ${channel} con el rol de soporte ${soporteRol}.**`);
+
+    return interaction.reply({
+      embeds: [successEmbed],
+      flags: ['Ephemeral']
+    });
   },
 };

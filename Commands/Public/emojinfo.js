@@ -1,59 +1,81 @@
-const { SlashCommandBuilder } = require(`@discordjs/builders`);
-
-// haga un comando de barra que obtendrá la información de emoji del usuario
-
-
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
 module.exports = {
-
   data: new SlashCommandBuilder()
-
-    .setName(`emoji-info`)
-
-    .setDescription(`Obtiene información de emoji`)
-
+    .setName("emoji-info")
+    .setDescription("Obtiene información detallada y el enlace de descarga de un emoji personalizado.")
     .addStringOption((option) =>
-
-      option.setName(`emoji`).setDescription(`El emoji`).setRequired(true)
-
+      option
+        .setName("emoji")
+        .setDescription("Menciona o pega el emoji personalizado del cual quieres ver la información")
+        .setRequired(true)
     ),
 
   async execute(interaction, client) {
+    const emojiInput = interaction.options.getString("emoji").trim();
 
-    // obtener el emoji
-
-    const emoji = interaction.options.getString(`emoji`);
-
-    // si el emoji no es un emoji personalizado
-
-    if (!emoji.startsWith(`<`))
-
+    // Expresión regular para validar emojis personalizados de Discord (estáticos y animados)
+    const match = emojiInput.match(/^<?(a)?:?(\w+):(\d{17,20})>?$/);
+    if (!match) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor("Red")
+        .setTitle("❌ Emoji Inválido")
+        .setDescription(
+          "El emoji ingresado no es un emoji personalizado válido de Discord.\n\n" +
+          "**Instrucciones:**\n" +
+          "• Asegúrate de introducir un emoji personalizado (ej. `<:nombre:id>`).\n" +
+          "• Los emojis estándar de Discord (emojis Unicode como 😀, 🚀, etc.) no tienen ID ni enlace de imagen."
+        );
       return interaction.reply({
-
-        content: `¡Proporcione un emoji personalizado!`,
-
-        ephemeral: true,
-
+        embeds: [errorEmbed],
+        flags: ['Ephemeral'],
       });
+    }
 
-    // obtener la identificación emoji
+    const isAnimated = !!match[1];
+    const emojiName = match[2];
+    const emojiId = match[3];
 
-    const emojiid = emoji.split(`:`)[2].slice(0, -1);
+    const ext = isAnimated ? "gif" : "png";
+    const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${ext}?size=4096&quality=lossless`;
+    const formatType = isAnimated ? "Animado (GIF)" : "Estático (PNG)";
+    const copyPasteCode = isAnimated ? `\`<a:${emojiName}:${emojiId}>\`` : `\`<:${emojiName}:${emojiId}>\``;
 
-    // obtener la URL del emoji
+    const embed = new EmbedBuilder()
+      .setColor("#2b2d31")
+      .setTitle("✨ Información de Emoji")
+      .setThumbnail(emojiUrl)
+      .setDescription("Detalles del emoji personalizado seleccionado:")
+      .addFields(
+        {
+          name: "🏷️ Nombre",
+          value: `\`:${emojiName}:\``,
+          inline: true
+        },
+        {
+          name: "🆔 ID",
+          value: `\`${emojiId}\``,
+          inline: true
+        },
+        {
+          name: "🎥 Tipo",
+          value: formatType,
+          inline: true
+        },
+        {
+          name: "🛠️ Código de uso",
+          value: copyPasteCode,
+          inline: false
+        },
+        {
+          name: "🔗 Enlace de descarga",
+          value: `[Haga clic aquí para descargar](${emojiUrl})`,
+          inline: false
+        }
+      )
+      .setTimestamp()
+      .setFooter({ text: `Pedido por ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() });
 
-    const emojiurl = `https://cdn.discordapp.com/emojis/${emojiid}.png`;
-
-    // enviar una respuesta
-
-    interaction.reply({
-
-      content: `**Emoji Info**\n\n**Nombre:** ${emoji}\n**ID:** ${emojiid}\n**URL:** [Haga clic aquí](${emojiurl})`,
-
-      ephemeral: true,
-
-    });
-
+    return interaction.reply({ embeds: [embed] });
   },
-
 };
