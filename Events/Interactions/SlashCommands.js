@@ -56,6 +56,15 @@ module.exports = {
       }
 
       command.execute(interaction, client);
+    } else if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) return;
+
+      try {
+        await command.autocomplete(interaction, client);
+      } catch (error) {
+        console.error("Error en autocompletado:", error);
+      }
     } else if (interaction.isButton()) {
       const { customId } = interaction;
 
@@ -89,6 +98,25 @@ module.exports = {
             queue.setRepeatMode(newMode);
             const modes = ["Desactivado", "Repetir Canción", "Repetir Cola"];
             await interaction.reply({ content: `🔁 Modo de bucle cambiado a: **${modes[newMode]}**`, flags: ['Ephemeral'] });
+          } else if (customId === "music_volume") {
+            const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js");
+            const modal = new ModalBuilder()
+              .setCustomId("music_volume_modal")
+              .setTitle("Ajustar Volumen");
+
+            const volumeInput = new TextInputBuilder()
+              .setCustomId("volume_input")
+              .setLabel("Nuevo volumen (0 a 100)")
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder("Ej: 50")
+              .setMinLength(1)
+              .setMaxLength(3)
+              .setRequired(true);
+
+            const actionRow = new ActionRowBuilder().addComponents(volumeInput);
+            modal.addComponents(actionRow);
+
+            await interaction.showModal(modal);
           }
         } catch (err) {
           console.error(err);
@@ -105,6 +133,20 @@ module.exports = {
         await button.execute(interaction, client);
       } catch (err) {
         console.error(err);
+      }
+    } else if (interaction.isModalSubmit()) {
+      const { customId } = interaction;
+      if (customId === "music_volume_modal") {
+        const queue = client.distube.getQueue(interaction.guild.id);
+        if (!queue) return interaction.reply({ content: "⚠️ No hay música reproduciéndose en este servidor.", flags: ['Ephemeral'] });
+
+        const volume = parseInt(interaction.fields.getTextInputValue("volume_input"));
+        if (isNaN(volume) || volume < 0 || volume > 100) {
+          return interaction.reply({ content: "⚠️ Por favor, introduce un número válido entre 0 y 100.", flags: ['Ephemeral'] });
+        }
+
+        queue.setVolume(volume);
+        await interaction.reply({ content: `🔊 Volumen ajustado al **${volume}%**`, flags: ['Ephemeral'] });
       }
     } else {
       return;

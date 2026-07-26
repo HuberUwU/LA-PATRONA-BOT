@@ -4,12 +4,20 @@ const { User, Message, GuildMember, ThreadMember } = Partials;
 const { ActivityType } = require("discord.js");
 const { DisTube } = require('distube');
 const { SpotifyPlugin } = require('@distube/spotify');
+const { YouTubePlugin } = require('@distube/youtube');
 const { SoundCloudPlugin } = require('@distube/soundcloud');
+const { YtDlpPlugin } = require('@distube/yt-dlp');
+
+// Instancia de YtDlpPlugin y sobrescritura de getStreamURL para solucionar el error de descifrado (decipher) y HTTP 403 (3436169992)
+const ytDlpPluginInstance = new YtDlpPlugin({ update: false });
+YouTubePlugin.prototype.getStreamURL = async function (song) {
+  return ytDlpPluginInstance.getStreamURL(song);
+};
 
 const mongoose = require("mongoose");
 const afkSchema = require('./Schemas/afkSchema');
 
-const client = new Client({ 
+const client = new Client({
   intents: [Guilds, GuildMembers, GuildMessages, GuildVoiceStates, MessageContent],
   partials: [User, Message, GuildMember, ThreadMember]
 });
@@ -32,8 +40,15 @@ client.distube = new DisTube(client, {
     path: ffmpeg
   },
   plugins: [
-    new SpotifyPlugin(),
-    new SoundCloudPlugin()
+    new SpotifyPlugin({
+      api: {
+        clientId: client.config.SpotifyID,
+        clientSecret: client.config.SpotifySecret,
+      }
+    }),
+    new YouTubePlugin(),
+    new SoundCloudPlugin(),
+    ytDlpPluginInstance
   ]
 });
 
@@ -46,12 +61,12 @@ loadButtons(client);
 require(`./Handlers/anti-crash`)(client);
 
 client.login(client.config.token).then(() => {
-    client.user.setPresence({
-        activities: [{
-            name: `UPDATE 0.12🎡`,
-            type: ActivityType[`Playing`]
-        }]
-    });
+  client.user.setPresence({
+    activities: [{
+      name: `REALEASE 1.0 🎡`,
+      type: ActivityType[`Playing`]
+    }]
+  });
 });
 
 client.on(Events.MessageCreate, async message => {
@@ -61,29 +76,29 @@ client.on(Events.MessageCreate, async message => {
     // Si Mongoose no está conectado (1 = connected), ignorar las consultas de AFK
     if (mongoose.connection.readyState !== 1) return;
 
-    const check = await afkSchema.findOne({ Guild: message.guild.id, User: message.author.id});
+    const check = await afkSchema.findOne({ Guild: message.guild.id, User: message.author.id });
     if (check) {
       const nick = check.Nickname || null;
-      await afkSchema.deleteMany({ Guild: message.guild.id, User: message.author.id});
+      await afkSchema.deleteMany({ Guild: message.guild.id, User: message.author.id });
 
-      await message.member.setNickname(nick).catch(() => {});
+      await message.member.setNickname(nick).catch(() => { });
 
       const m1 = await message.reply({ content: `Bienvenido de nuevo, **${message.author}**! He **removido** tu estado **AFK**` });
       setTimeout(() => {
-        m1.delete().catch(() => {});
+        m1.delete().catch(() => { });
       }, 4000);
     } else {
       const members = message.mentions.users.first();
       if (!members) return;
-      
-      const Data = await afkSchema.findOne({ Guild: message.guild.id, User: members.id});
+
+      const Data = await afkSchema.findOne({ Guild: message.guild.id, User: members.id });
       if (!Data) return;
 
       const member = message.guild.members.cache.get(members.id);
       const msg = Data.Message || 'Ninguna razón dada';
 
       if (message.content.includes(members)) {
-        await message.reply({ content: `**${member?.user?.tag || members.tag}** está **AFK** | **Motivo:** ${msg}`}).catch(() => {});
+        await message.reply({ content: `**${member?.user?.tag || members.tag}** está **AFK** | **Motivo:** ${msg}` }).catch(() => { });
       }
     }
   } catch (err) {

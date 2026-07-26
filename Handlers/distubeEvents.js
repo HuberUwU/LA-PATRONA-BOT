@@ -22,7 +22,12 @@ module.exports = (client) => {
         .setCustomId("music_loop")
         .setEmoji("🔁")
         .setLabel("Bucle")
-        .setStyle(ButtonStyle.Success)
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("music_volume")
+        .setEmoji("🔊")
+        .setLabel("Volumen")
+        .setStyle(ButtonStyle.Secondary)
     );
   };
 
@@ -57,14 +62,14 @@ module.exports = (client) => {
 
       queue.textChannel.send({ embeds: [embed] });
     })
-    .on("error", (channel, error) => {
+    .on("error", (error, queue) => {
       console.error("DisTube Error:", error);
       const embed = new EmbedBuilder()
-        .setDescription(`❌ Ocurrió un error inesperado al reproducir música.`)
+        .setDescription(`❌ Ocurrió un error al reproducir música: \`${error.message || error}\``)
         .setColor("Red");
 
-      if (channel && typeof channel.send === "function") {
-        channel.send({ embeds: [embed] }).catch(() => {});
+      if (queue && queue.textChannel) {
+        queue.textChannel.send({ embeds: [embed] }).catch(() => {});
       }
     })
     .on("empty", (queue) => {

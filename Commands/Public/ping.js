@@ -13,7 +13,9 @@ module.exports = {
    * @param {ChatInputCommandInteraction} interaction
    */
   async execute(interaction) {
-    const msgLatency = Date.now() - interaction.createdTimestamp;
+    await interaction.reply({ content: "Calculando latencia..." });
+    const sent = await interaction.fetchReply();
+    const msgLatency = sent.createdTimestamp - interaction.createdTimestamp;
     const apiLatency = Math.round(interaction.client.ws.ping);
 
     const embed = new EmbedBuilder()
@@ -25,6 +27,6 @@ module.exports = {
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ content: " ", embeds: [embed] });
   },
 };

@@ -114,7 +114,7 @@ module.exports = {
     // 3. Crear el embed de soporte
     const embed = new EmbedBuilder()
       .setTitle(titulo)
-      .setDescription(description);
+      .setDescription(descripcion);
 
     if (thumbnail) embed.setThumbnail(thumbnail.url);
     if (imagen) embed.setImage(imagen.url);
@@ -148,7 +148,7 @@ module.exports = {
     await ticketSchema.findOneAndUpdate(
       { Guild: interaction.guild.id },
       { StaffRole: soporteRol.id },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     // 6. Enviar panel al canal y responder con confirmación

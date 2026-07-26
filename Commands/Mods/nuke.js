@@ -59,7 +59,8 @@ module.exports = {
                 .setDescription(
                   `${channel.name} Este canal fue nukeado por ${interaction.user}`
                 )
-                .setColor("Blue"),
+                .setColor("Blue")
+                .setImage("https://media.tenor.com/giN2CZ60D70AAAAC/explosion-mushroom-cloud.gif"),
             ],
           });
           if (channel.id !== interaction.channelId) {
@@ -69,7 +70,7 @@ module.exports = {
                   .setTitle("🗑️ Canal Nukeado")
                   .setDescription(`${channel.name} ha sido nukeado correctamente`)
                   .setColor("Blue")
-                  .setImage("https://j.gifs.com/vQbBj7.gif"),
+                  .setImage("https://media.tenor.com/giN2CZ60D70AAAAC/explosion-mushroom-cloud.gif"),
               ],
               components: [],
             });
