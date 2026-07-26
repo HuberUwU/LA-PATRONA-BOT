@@ -1,4 +1,6 @@
 {
   "token": "",
-  "mongopass": ""
+  "mongopass": "",
+  "SpotifyID": "",
+  "SpotifySecret": ""
 }
